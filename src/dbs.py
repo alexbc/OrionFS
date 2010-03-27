@@ -30,6 +30,8 @@ STATE_HANDSHAKE = 1 #some constants for socket protocol state
 STATE_UPLOAD = 2
 STATE_DOWNLOAD = 3
 
+DATA_PATH = "../cache/"
+
 def closesock(sock): #close and remove all info on sock
     global downloads, uploads, scok, sockets
 
@@ -69,6 +71,12 @@ def completedpack(buffer): #is this a completed packet?
     if buffer.count("\n") >= 1:
         return True
     return False
+
+def encodefpath(path): #encode keys to filesystem paths
+    return path.replace("/", "??")
+
+def decodefpath(path): #convert filesystem paths to keys
+    return path.replace("??", "/")
 
 def main():
     global files, downloads, uploads, sockets, sockdata, MAXPACKLEN, SOCKETTIMEOUT
@@ -127,18 +135,18 @@ def main():
                         buffer = buffer[buffer.find("\n") + 1:] #grab everything after the \n
 
                     if verb == "GET":
-                        if not os.path.exists("cache/" + payload): #we don't have this
+                        if not os.path.exists(DATA_PATH + encodefpath(payload)): #we don't have this
                             closesock(sock) #so simply close
                             continue
 
-                        fp = open("cache/" + payload)
+                        fp = open(DATA_PATH + encodefpath(payload))
                         files += [fp]
                         downloads.append((fp, sock))
                         sock.shutdown(socket.SHUT_RD) #we are only sending data, so advertise that to the remote site
                         sockdata[sock]['state'] = STATE_DOWNLOAD
 
                     elif verb == "PUT":
-                        fp = open("cache/" + payload, "w")
+                        fp = open(DATA_PATH + encodefpath(payload), "w")
                         fp.write(buffer) #write the initial part of the buffer
                         files += [fp]
                         uploads.append((sock, fp))
@@ -146,13 +154,14 @@ def main():
                         sockdata[sock]['state'] = STATE_UPLOAD
 
                     elif verb == "LIST": #list keys in dir
-                        lst = os.listdir("cache/") #list the files in the cache dir
+                        lst = os.listdir(DATA_PATH) #list the files in the cache dir
+                        lst = map(decodefpath, lst)
                         sock.send("\n".join(lst))
                         closesock(sock)
 
                     elif verb == "RM":
                         #TODO replace RM with a delayed RM with GC
-                        os.remove("cache/" + payload)
+                        os.remove(DATA_PATH + encodefpath(payload))
                         closesock(sock)
 
                     else: #bad Verb, close the socket

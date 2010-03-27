@@ -1,0 +1,17 @@
+README
+
+ALPHA QUALITY SOFTWARE RELEASE, DO NOT USE FOR ANYTHING REQUIRING PROPER CODE
+
+Componants
+- Dbs.py, the dumb block server.
+- Resilverd.py, The resilvering daemon
+- Clientd.py, the client daemon
+- Client.py, The fuse client
+
+DBS is a very dumb block server, it quickly retrieves/stores blocks from disk to the network.
+
+ResilverD resilvers blocks between DBS's so that it meets the criteria specified (ie. that at least N copies exist, etc.)
+
+ClientD is the clientside daemon that connects to backend servers and retrieves data for them
+
+Client.py is the actual fuse client side library
