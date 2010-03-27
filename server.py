@@ -1,6 +1,7 @@
 import socket
 import select
 import time
+import os
 
 #create an INET, STREAMing socket
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,7 +54,7 @@ def malformedpack(buffer): #is buffer a malformed packet?
 
     if len(buffer) > MAXPACKLEN:
         return True
-    if buffer.split(" ")[0] not in ["GET", 'PUT']:
+    if buffer.split(" ")[0] not in ["GET", 'PUT'] and " " in buffer:
         return True
     if buffer.split("\n")[0].count(" ") > 1:
         return True
@@ -91,8 +92,8 @@ def main():
 
 
             if sockdata[sock]['state'] == STATE_HANDSHAKE:
-                data = sock.recv(4096) #recieve some data from the socket
-                print "Recieved data", data
+                data = sock.recv(8096) #recieve some data from the socket
+                print "Recieved data", repr(data)
 
                 if len(data) == 0: #connection has been closed
                     closesock(sock)
@@ -113,13 +114,18 @@ def main():
                     buffer = buffer.strip()
                     cmdline = buffer.split("\n")[0]
                     verb = cmdline.split(" ")[0]
-                    payload = cmdline.split(" ")[1]
+                    
+                    payload = ""
+                    if " " in cmdline:
+                        payload = cmdline.split(" ")[1]
+
                     print "Buffer", repr(buffer)
                     print "Payload", payload
 
-                    if buffer.find("\n") == 0: #it had a newline at the end, so there is no extra info
+
+                    if buffer.find("\n") == -1: #it had a newline at the end, so there is no extra info
                         buffer = ""
-                    else
+                    else:
                         buffer = buffer[buffer.find("\n") + 1:] #grab everything after the \n
 
                     if verb == "GET":
@@ -130,12 +136,20 @@ def main():
                         sockdata[sock]['state'] = STATE_DOWNLOAD
 
                     elif verb == "PUT":
+                        print "buffer is", repr(buffer)
+
                         fp = open("cache/" + payload, "w")
                         fp.write(buffer) #write the initial part of the buffer
                         files += [fp]
                         uploads.append((sock, fp))
                         #sock.shutdown(socket.SHUT_WR) #we are only reading data, so advertise that
                         sockdata[sock]['state'] = STATE_UPLOAD
+
+                    elif verb == "LIST":
+                        lst = os.listdir("cache/")
+                        sock.send("\n".join(lst))
+                        closesock(sock)
+
 
 
         #now do file downloads
