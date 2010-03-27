@@ -3,11 +3,12 @@ import select
 import time
 
 #create an INET, STREAMing socket
-serversocket = socket.socket(
-socket.AF_INET, socket.SOCK_STREAM)
+serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #reuse sockets.
+
 #bind the socket to a public host, 
 # and a well-known port
-serversocket.bind(('127.0.0.1', 8010))
+serversocket.bind(('127.0.0.1', 8011))
 #become a server socket
 serversocket.listen(5)
 serversocket.setblocking(False)
@@ -64,7 +65,7 @@ def main():
         readl, writel, errorl = select.select(sockets, sockets, sockets, 0.1) #select and wait for up to 0.1 seconds before continuing to process
         readf, writef, errorf = select.select(files, files, files, 0.1) #select files that are avaliable, wait for up to 0.1 seconds before continuing to process
 
-        print readl, writel, errorl
+        #print readl, writel, errorl
 
         for sock in errorl: #if socket is screwed up
             print "Error"
@@ -94,6 +95,7 @@ def main():
                continue
 
             if completedpack(buffer): #is this a completed packet? if so process it
+                #TODO move to its own function
                 buffer = buffer.strip()
                 payload = buffer.split(" ")[1]
                 fp = open("cache/" + payload)
@@ -106,6 +108,8 @@ def main():
 
 
         #now do file downloads
+        #TODO make this more efficient (add additional selects/use filters)
+        #TODO move this into its own sub
         finisheddownloads = []
         for sender, reciever in downloads:
             if sender in readf and reciever in writel:
@@ -122,6 +126,7 @@ def main():
             closesock(reciever)
             closefile(sender)
 
+        #TODO move this to its own subroutine
         #now look for sockets that have timedout
         now = time.time()
         deadsocks = []
