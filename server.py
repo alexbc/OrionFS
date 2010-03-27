@@ -3,14 +3,14 @@ import select
 import time
 import os
 
-#create an INET, STREAMing socket
+#create an TCP listening socket
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #reuse sockets.
 
-#bind the socket to a public host, 
-# and a well-known port
+#bind the socket 
 serversocket.bind(('127.0.0.1', 8011))
-#become a server socket
+
+#start listening and make it non blocking
 serversocket.listen(5)
 serversocket.setblocking(False)
 
@@ -18,29 +18,30 @@ sockets = [serversocket] #store the sockets we are looking at
 files = [] #store the files we are looking at
 
 #TODO reconsile uploads and downloads
-downloads = [] #(socket, file) pairs for current file downloads
-uploads = [] #(file, socket) pairs for current file uploads
+downloads = [] #(file, socket) pairs for current file downloads
+uploads = [] #(socket, file) pairs for current file uploads
 
 
 sockdata = {} #socket data buffer, to allow multipart commands
 MAXPACKLEN = 8096 #max packet len (in bytes)
 SOCKTIMEOUT = 120 #timeout time (seconds)
 
-STATE_HANDSHAKE = 1
+STATE_HANDSHAKE = 1 #some constants for socket protocol state
 STATE_UPLOAD = 2
 STATE_DOWNLOAD = 3
 
 def closesock(sock): #close and remove all info on sock
-    global downloads, scok, sockets
+    global downloads, uploads, scok, sockets
 
     print "Closing ", sockdata[sock]['address']
-    del sockdata[sock]
+    del sockdata[sock] #GC the socket data for that given socket
     sockets.remove(sock)
-    downloads = filter(lambda x: x[1] != sock, downloads)
+    downloads = filter(lambda x: [1] != sock, downloads)
+    uploads = filter(lambda x: x[0] != sock, uploads)
     sock.close()
     return
 
-def closefile(fle):
+def closefile(fle): #close file descriptor
     global files, downloads, uploads
     print "Closing", fle.name
     files.remove(fle)
@@ -50,7 +51,9 @@ def closefile(fle):
     fle.close()
 
 def malformedpack(buffer): #is buffer a malformed packet?
-    # a valid packet is less then MAXPACKLEN bytes long, starts with "GET" and has exactly one space
+    # a valid packet is less then MAXPACKLEN bytes long
+    # A valid packet either has the word LIST and a \n or
+    #starts with "GET"/"POST"/"RM" and has exactly one space then one word before \n
 
     if len(buffer) > MAXPACKLEN:
         return True
@@ -75,6 +78,7 @@ def main():
 
         readl, writel, errorl = select.select(sockets, sockets, sockets, 0.1) #select and wait for up to 0.1 seconds before continuing to process
         readf, writef, errorf = select.select(files, files, files, 0) #select files that are avaliable now for reading/writing
+        #print files, downloads, uploads, sockets
 
         for sock in errorl: #if socket is screwed up
             print "Error"
@@ -123,6 +127,10 @@ def main():
                         buffer = buffer[buffer.find("\n") + 1:] #grab everything after the \n
 
                     if verb == "GET":
+                        if not os.path.exists("cache/" + payload): #we don't have this
+                            closesock(sock) #so simply close
+                            continue
+
                         fp = open("cache/" + payload)
                         files += [fp]
                         downloads.append((fp, sock))
@@ -137,16 +145,17 @@ def main():
                         #sock.shutdown(socket.SHUT_WR) #we are only reading data, so advertise that
                         sockdata[sock]['state'] = STATE_UPLOAD
 
-                    elif verb == "LIST":
-                        lst = os.listdir("cache/")
+                    elif verb == "LIST": #list keys in dir
+                        lst = os.listdir("cache/") #list the files in the cache dir
                         sock.send("\n".join(lst))
                         closesock(sock)
 
                     elif verb == "RM":
+                        #TODO replace RM with a delayed RM with GC
                         os.remove("cache/" + payload)
                         closesock(sock)
 
-                    else:
+                    else: #bad Verb, close the socket
                         closesock(sock)
 
 
@@ -175,7 +184,7 @@ def main():
             if len(data) == 0: #transfer is complete
                 closesock(sender)
                 closefile(reciever)
-                reciever.close()
+                reciever.close() #for some reason one .close() isn't enough.
             else:
                 reciever.write(data)
 
