@@ -54,7 +54,7 @@ def malformedpack(buffer): #is buffer a malformed packet?
 
     if len(buffer) > MAXPACKLEN:
         return True
-    if buffer.split(" ")[0] not in ["GET", 'PUT'] and " " in buffer:
+    if buffer.split(" ")[0] not in ["GET", 'PUT', 'RM'] and " " in buffer:
         return True
     if buffer.split("\n")[0].count(" ") > 1:
         return True
@@ -93,7 +93,6 @@ def main():
 
             if sockdata[sock]['state'] == STATE_HANDSHAKE:
                 data = sock.recv(8096) #recieve some data from the socket
-                print "Recieved data", repr(data)
 
                 if len(data) == 0: #connection has been closed
                     closesock(sock)
@@ -109,7 +108,6 @@ def main():
                     continue
 
                 if completedpack(buffer): #is this a completed packet? if so process it
-                    print "Completed packet"
                     #TODO move to its own function
                     buffer = buffer.strip()
                     cmdline = buffer.split("\n")[0]
@@ -118,10 +116,6 @@ def main():
                     payload = ""
                     if " " in cmdline:
                         payload = cmdline.split(" ")[1]
-
-                    print "Buffer", repr(buffer)
-                    print "Payload", payload
-
 
                     if buffer.find("\n") == -1: #it had a newline at the end, so there is no extra info
                         buffer = ""
@@ -136,8 +130,6 @@ def main():
                         sockdata[sock]['state'] = STATE_DOWNLOAD
 
                     elif verb == "PUT":
-                        print "buffer is", repr(buffer)
-
                         fp = open("cache/" + payload, "w")
                         fp.write(buffer) #write the initial part of the buffer
                         files += [fp]
@@ -149,6 +141,14 @@ def main():
                         lst = os.listdir("cache/")
                         sock.send("\n".join(lst))
                         closesock(sock)
+
+                    elif verb == "RM":
+                        os.remove("cache/" + payload)
+                        closesock(sock)
+
+                    else:
+                        closesock(sock)
+
 
 
 
@@ -173,7 +173,6 @@ def main():
             sockdata[sender]['lastdata'] = now
             data = sender.recv(8096)
             if len(data) == 0: #transfer is complete
-                print "Closed"
                 closesock(sender)
                 closefile(reciever)
                 reciever.close()
