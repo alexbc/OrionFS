@@ -25,12 +25,12 @@ def closesock(sock):
 
 def gethost(fileaname, type): #only do one read
     #TODO actually work out what hosts to use based on consistant hashing, lol
-    if type="r":
+    if type=="r":
         return ('127.0.0.1', 8011)
-    else
+    else:
         return [('127.0.0.1', 8011)]
 
-def buildsocket(filename, host):
+def buildsocket(host):
     global sockdata, sockets
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(host)
@@ -45,18 +45,34 @@ def buildsocket(filename, host):
 
 def getfile(filename, callback):
     global sockdata
-    sock = buildsocket(filename, gethost(filename, "r"))
+    sock = buildsocket(gethost(filename, "r"))
     sockdata[sock]['outbuffer'] = 'GET ' + filename + '\n'
     sockdata[sock]['callback'] = callback
 
 def putfile(filename, file):
     global sockdata
     for host in gethost(filename, "w"):
-        sock = buildsocket(filename, host)
+        sock = buildsocket(host)
         request = 'PUT ' + filename + '\n' + file
         sockdata[sock]['outbuffer'] = request
         sockdata[sock]['putonly'] = True
 
+def rmfile(filename):
+    global sockdata
+    sock = buildsocket(gethost(filename, "r"))
+    request = "RM " + filename + "\n"
+    sockdata[sock]['outbuffer'] = request
+
+def listfile(host, callback):
+    global sockdata
+    sock = buildsocket(host)
+    request = "LIST\n"
+    sockdata[sock]['outbuffer'] = request
+    sockdata[sock]['callback'] = callback
+
+
+rmfile("test")
+listfile(('127.0.0.1', 8011), callback)
 
 while 1:
     reads, writes, errors = select.select(sockets, sockets, sockets, 1)
