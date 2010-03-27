@@ -23,7 +23,7 @@ uploads = [] #(file, socket) pairs for current file uploads
 
 sockdata = {} #socket data buffer, to allow multipart commands
 MAXPACKLEN = 8096 #max packet len (in bytes)
-SOCKTIMEOUT = 10 #timeout time (seconds)
+SOCKTIMEOUT = 120 #timeout time (seconds)
 
 STATE_HANDSHAKE = 1
 STATE_UPLOAD = 2
@@ -40,10 +40,13 @@ def closesock(sock): #close and remove all info on sock
     return
 
 def closefile(fle):
-    global files, downloads
+    global files, downloads, uploads
     print "Closing", fle.name
     files.remove(fle)
     downloads = filter(lambda x: x[0] != fle, downloads)
+    uploads = filter(lambda x: x[1] != fle, uploads)
+    fle.flush()
+    fle.close()
 
 def malformedpack(buffer): #is buffer a malformed packet?
     # a valid packet is less then MAXPACKLEN bytes long, starts with "GET" and has exactly one space
@@ -59,7 +62,7 @@ def malformedpack(buffer): #is buffer a malformed packet?
 
 
 def completedpack(buffer): #is this a completed packet?
-    if buffer.count("\n") > 1:
+    if buffer.count("\n") >= 1:
         return True
     return False
 
@@ -89,13 +92,15 @@ def main():
 
             if sockdata[sock]['state'] == STATE_HANDSHAKE:
                 data = sock.recv(4096) #recieve some data from the socket
+                print "Recieved data", data
+
                 if len(data) == 0: #connection has been closed
                     closesock(sock)
                     continue
 
                 sockdata[sock]['buffer'] += data #add the new data to our socket buffer
                 buffer = sockdata[sock]['buffer']
-                sockdata[sock]['data'] = time.time()
+                sockdata[sock]['lastdata'] = time.time()
 
                 if malformedpack(buffer): #if this packet is malformed, close the socket
                     print "Malformed packet"
@@ -103,11 +108,19 @@ def main():
                     continue
 
                 if completedpack(buffer): #is this a completed packet? if so process it
+                    print "Completed packet"
                     #TODO move to its own function
                     buffer = buffer.strip()
-                    verb = buffer.split(" ")[0]
-                    payload = buffer.split(" ")[1]
-                    buffer = buffer[buffer.find("\n") + 1:] #grab everything after the \n
+                    cmdline = buffer.split("\n")[0]
+                    verb = cmdline.split(" ")[0]
+                    payload = cmdline.split(" ")[1]
+                    print "Buffer", repr(buffer)
+                    print "Payload", payload
+
+                    if buffer.find("\n") == 0: #it had a newline at the end, so there is no extra info
+                        buffer = ""
+                    else
+                        buffer = buffer[buffer.find("\n") + 1:] #grab everything after the \n
 
                     if verb == "GET":
                         fp = open("cache/" + payload)
@@ -142,15 +155,14 @@ def main():
         #TODO make this more efficient
         #TODO make this its own sub
         curuploads = filter(lambda x: x[0] in readl and x[1] in writef, uploads)
-        print "Uploads", curuploads
         for sender, reciever in curuploads:
             sockdata[sender]['lastdata'] = now
             data = sender.recv(8096)
-            print "Read", data
             if len(data) == 0: #transfer is complete
                 print "Closed"
                 closesock(sender)
                 closefile(reciever)
+                reciever.close()
             else:
                 reciever.write(data)
 
