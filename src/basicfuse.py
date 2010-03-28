@@ -8,6 +8,8 @@ from time import time
 from hashlib import sha512
 from fuse import FUSE, Operations, LoggingMixIn
 import socket
+from  connectlib import getblock, putblock, rmblock
+import simplejson
 
 #TODO symlinking doesn't work (soft)
 #TODO HARDLINKING isn't supported
@@ -15,24 +17,25 @@ import socket
 
 BLOCKSIZE = 8096
 BLOCKNAMESIZE = 32
-blocks = {'METADATA=/' : dict(st_size=0, blocks=[], xattr={}, files=[], st_mode=(S_IFDIR | 0755), st_ctime=time(),   st_mtime=time(), st_atime=time(), st_nlink=2)}
+#blocks = {'METADATA=/' : dict(st_size=0, blocks=[], xattr={}, files=[], st_mode=(S_IFDIR | 0755), st_ctime=time(),   st_mtime=time(), st_atime=time(), st_nlink=2)}
+
+def blockexists(key):
+    return getblock(key) != ""
 
 def exists(path):
-    return 'METADATA=' + path in blocks
+    return blockexists('METADATA=' + path)
 
 def getmetadata(path):
     pth = 'METADATA=' + path
     print "Finding metadata for", path
-    if pth not in blocks:
+    if not blockexists(pth):
         print "No metadata for ", path, "using default"
-        return blocks['METADATA=/']
-    print "Got metadata", blocks[pth]
-    return blocks[pth]
+        return dict(st_size=0, blocks=[], xattr={}, files=[], st_mode=(S_IFDIR | 0755),  st_ctime=time(), st_mtime=time(), st_atime=time(), st_nlink=2)
+    return simplejson.loads(getblock(pth))
 
 def setmetadata(path, meta):
-    global blocks
     print "Setting", path, "metadata to", meta
-    blocks['METADATA=' + path] = meta
+    putblock('METADATA=' + path,  simplejson.dumps(meta))
 
 def getparent(path):
     parent = "/".join(path.split("/")[:-1])
@@ -40,19 +43,26 @@ def getparent(path):
         parent = "/"
     return parent
 
-def getblock(name):
-    return blocks[name]
+#def getblock(name):
+#    print "Getting block", name
+#    return simplejson.loads(connectlib.getblock(name))
 
-def putblock(name, block):
-    global blocks
-    blocks[name] = block
+#def putblock(name, value):
+#    print "Putting block",repr(name), repr(value)
+#    connectlib.putblock(name, simplejson.dumps(value))
+#def getblock(name):
+#    return blocks[name]
+
+#def putblock(name, block):
+#    global blocks
+#    blocks[name] = block
 
 def nameblock(block):
     return sha512(block).hexdigest()[:BLOCKNAMESIZE]
 
-def rmblock(name):
-    print "removing block", name
-    del blocks[name]
+#def rmblock(name):
+#    print "removing block", name
+#    del blocks[name]
 
 class BasicFuse(LoggingMixIn, Operations):
     """Basic orion implementation over fuse"""
@@ -269,8 +279,7 @@ class BasicFuse(LoggingMixIn, Operations):
             #new block, need to update the size
             sze = BLOCKSIZE * len(dblocks) #how many full blocks do we have?
             sze += len(curblock) #add in the length of the current block
-            print len(dblocks), len(curblock)
-
+            
             #New block, update size
             dblocks += [blockname]
 
@@ -288,3 +297,4 @@ if __name__ == "__main__":
         print 'usage: %s <mountpoint>' % argv[0]
         exit(1)
     fuse = FUSE(BasicFuse(), argv[1], foreground=True)
+    #fuse = FUSE(BasicFuse(), argv[1])

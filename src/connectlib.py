@@ -49,20 +49,24 @@ def rmfromhost(key, host):
 
 def getblock(key):
     host = random.choice(findpeers(PEERS, key)[:3])
-    return getfromhost(key, host)
+    val = getfromhost(key, host)
+    print "%s = %s" % (key, val)
+    return val
 
 def putblock(key, value):
+    print "Set %s = %s" % (key, value)
     hosts = findpeers(PEERS, key)[:3]
     for host in hosts:
         puttohost(key, host, value)
 
 def rmblock(key):
+    print "Rm %s" % key
     hosts = findpeers(PEERS, key)[:3]
     for host in hosts:
         rmfromhost(key, host)
 
 if __name__ == "__main__":
-    putblock("test", "I like aeroplane jelly")
+    putblock("test", "test\n")
     print getblock("test")
     rmblock('test')
 
