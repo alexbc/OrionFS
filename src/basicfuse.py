@@ -7,6 +7,7 @@ from sys import argv, exit
 from time import time
 from hashlib import sha512
 from fuse import FUSE, Operations, LoggingMixIn
+import socket
 
 #TODO symlinking doesn't work (soft)
 #TODO HARDLINKING isn't supported
