@@ -39,7 +39,6 @@ def puttohost(key, host, value):
         ret = s.send(value)
         value = value[ret:]
 
-    time.sleep(1)
     s.close()
     return
 
@@ -57,7 +56,7 @@ def getblock(key):
     return val
 
 def putblock(key, value):
-    print "Set %s = %s" % (key, value)
+    print "Set %s = %s" % (key, repr(value))
     hosts = findpeers(PEERS, key)[:3]
     for host in hosts:
         puttohost(key, host, value)
