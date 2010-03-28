@@ -14,4 +14,7 @@ ResilverD resilvers blocks between DBS's so that it meets the criteria specified
 
 ClientD is the clientside daemon that connects to backend servers and retrieves data for them
 
+simplefuse is a very simple and slow implementation of the client side of orionfs
+
 Client.py is the actual fuse client side library
+

@@ -1,6 +1,7 @@
 import socket
 import hashlib
 import random
+import time
 
 PEERS = [('localhost', 8011)]
 QUORUM = 3
@@ -37,6 +38,8 @@ def puttohost(key, host, value):
     while value != "":
         ret = s.send(value)
         value = value[ret:]
+
+    time.sleep(1)
     s.close()
     return
 
@@ -68,5 +71,5 @@ def rmblock(key):
 if __name__ == "__main__":
     putblock("test", "test\n")
     print getblock("test")
-    rmblock('test')
+#    rmblock('test')
 

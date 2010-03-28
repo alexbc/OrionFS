@@ -120,8 +120,8 @@ def main():
                     continue
 
                 if completedpack(buffer): #is this a completed packet? if so process it
+
                     #TODO move to its own function
-                    buffer = buffer.strip()
                     cmdline = buffer.split("\n")[0]
                     verb = cmdline.split(" ")[0]
                     
@@ -194,6 +194,7 @@ def main():
                 closesock(sender)
                 closefile(reciever)
                 reciever.close() #for some reason one .close() isn't enough.
+                sender.close()
             else:
                 reciever.write(data)
 

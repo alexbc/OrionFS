@@ -17,7 +17,6 @@ import simplejson
 
 BLOCKSIZE = 8096
 BLOCKNAMESIZE = 32
-#blocks = {'METADATA=/' : dict(st_size=0, blocks=[], xattr={}, files=[], st_mode=(S_IFDIR | 0755), st_ctime=time(),   st_mtime=time(), st_atime=time(), st_nlink=2)}
 
 def blockexists(key):
     return getblock(key) != ""
@@ -27,14 +26,14 @@ def exists(path):
 
 def getmetadata(path):
     pth = 'METADATA=' + path
-    print "Finding metadata for", path
+#    print "Finding metadata for", path
     if not blockexists(pth):
-        print "No metadata for ", path, "using default"
+#        print "No metadata for ", path, "using default"
         return dict(st_size=0, blocks=[], xattr={}, files=[], st_mode=(S_IFDIR | 0755),  st_ctime=time(), st_mtime=time(), st_atime=time(), st_nlink=2)
     return simplejson.loads(getblock(pth))
 
 def setmetadata(path, meta):
-    print "Setting", path, "metadata to", meta
+#    print "Setting", path, "metadata to", meta
     putblock('METADATA=' + path,  simplejson.dumps(meta))
 
 def getparent(path):
@@ -189,7 +188,7 @@ class BasicFuse(LoggingMixIn, Operations):
         meta = getmetadata(target)
         print "TARGET META", meta
         srcmeta = getmetadata(source)
-        print "SCR meta", srcmeta
+        print "SRC meta", srcmeta
         meta['mode'] = S_IFLNK | 0777
         meta['st_size'] = srcmeta['st_size']
         meta['st_nlink'] = 1
@@ -222,8 +221,6 @@ class BasicFuse(LoggingMixIn, Operations):
 
         meta['blocks'] = dblocks
         setmetadata(path, meta)
-
-        print "Truncate", path, length
 
     def unlink(self, path):
         meta = getmetadata(path)
